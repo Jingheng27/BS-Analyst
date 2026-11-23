@@ -77,7 +77,7 @@ const SUPABASE_URL="https://epsqmbyoeqnxcfyrzbhi.supabase.co";
 const SUPABASE_KEY="sb_publishable_JrXaeoEactIVQp6wlfIRsw_QfCTOTyl";
 let syncStatus="Conectando...";
 const setSyncStatus=(text)=>{syncStatus=text;const n=document.querySelector("#sync-status");if(n)n.textContent=text};
-const syncHeaders=()=>({apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"});
+const syncHeaders=()=>({apikey:SUPABASE_KEY,"Content-Type":"application/json"});
 const save=async()=>{
  localStorage.setItem("bsa",JSON.stringify(S));
  setSyncStatus("Guardando...");
@@ -87,7 +87,7 @@ const save=async()=>{
    method:"POST",headers:{...syncHeaders(),"Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({key:"shared_state",value:S,updated_at:new Date().toISOString()}),signal:c.signal
   });
   clearTimeout(timer);
-  setSyncStatus(r.ok?"Guardado compartido":"Error al sincronizar");
+  setSyncStatus(r.ok?"Guardado compartido":`Error Supabase (${r.status})`);
  }catch(e){clearTimeout(timer);setSyncStatus(e.name==="AbortError"?"Sin respuesta de Supabase":"Error al sincronizar")}
 };
 const T=()=>S.teams[S.active];
@@ -124,7 +124,7 @@ async function init(){
    headers:syncHeaders(),signal:c.signal
   });
   clearTimeout(timer);
-  if(!r.ok){setSyncStatus(r.status===404?"Tabla no configurada":"Error de conexión");}
+  if(!r.ok){setSyncStatus(r.status===404?"Tabla no configurada":`Error Supabase (${r.status})`);}
   else{
    const rows=await r.json();
    if(rows?.[0]?.value){
