@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BS Analyst · Análisis de equipo</title>
+<style>
+:root{--bg:#0f1220;--c:#1a1f35;--c2:#232a47;--t:#eef0fa;--m:#9aa3c7;--a:#ffd23f;--g:#3ddc84;--r:#ff5c6c;--b:#4da3ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:14px/1.4 system-ui,sans-serif}
+body.modal-open{overflow:hidden}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;background:var(--c);position:sticky;top:0;z-index:5;box-shadow:0 4px 18px #0003}
+header h1{font-size:17px;margin:0 8px 0 0;color:var(--a)}
+button,select,input,textarea{background:var(--c2);color:var(--t);border:1px solid #38406a;border-radius:8px;padding:7px 10px;font:inherit}
+button{cursor:pointer}button:hover{border-color:var(--a);filter:brightness(1.08)}button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+button.p{background:var(--a);color:#111;border:0;font-weight:700}
+nav{display:flex;gap:4px;padding:8px 14px;overflow:auto;scrollbar-width:thin}nav button{border:0;background:none;color:var(--m);font-weight:600;white-space:nowrap}
+nav button.on{color:var(--a);border-bottom:2px solid var(--a);border-radius:0}
+main{padding:0 14px 40px;max-width:1100px;margin:auto}
+.card{background:var(--c);border:1px solid #252d50;border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 8px 24px #0001}h2{font-size:15px;margin:0 0 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.row>*{flex:0 1 auto}
+table{width:100%;border-collapse:collapse}td,th{padding:6px 8px;text-align:left;border-bottom:1px solid #2a3157}th{color:var(--m);font-weight:600;font-size:12px}
+.ic{width:28px;height:28px;object-fit:contain;vertical-align:middle;margin-right:6px}.ic.l{width:56px;height:56px}
+.kpi{display:flex;gap:10px;flex-wrap:wrap}.kpi div{background:var(--c2);border-radius:10px;padding:10px 16px;min-width:110px}.kpi b{display:block;font-size:22px}
+.w{color:var(--g)}.l{color:var(--r)}.m{color:var(--m)}.tag{background:var(--c2);border-radius:6px;padding:2px 7px;font-size:12px}
+.chips{display:flex;gap:4px;flex-wrap:wrap;align-items:center;min-height:36px}.chips img{width:34px;height:34px;cursor:pointer;background:var(--c2);border-radius:8px}
+.add{width:34px;height:34px;padding:0}.map{background:var(--c2);border-radius:10px;overflow:hidden}.map img{width:100%;height:110px;object-fit:contain;background:#111}
+.map{cursor:pointer;transition:transform .15s,border-color .15s}.map:hover{transform:translateY(-2px);border:1px solid #56618f}
+.map-analysis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.map-analysis>div{background:var(--c2);border-radius:10px;padding:10px}.map-rank{display:flex;align-items:center;gap:6px;margin:5px 0}.map-rank b{margin-left:auto}
+.map div{padding:6px 8px}.bar{height:5px;background:#333b66;border-radius:3px;margin-top:4px}.bar i{display:block;height:100%;border-radius:3px}
+.bar i.no-data{background:#38406a!important}.bar i.good{background:#3ddc84!important}.bar i.bad{background:#ff5c6c!important}.bar i.mid{background:#ffd23f!important}
+.ov{position:fixed;inset:0;background:#080a14e8;backdrop-filter:blur(8px);z-index:20;display:flex;align-items:center;justify-content:center;padding:14px}
+.ov[hidden]{display:none!important}
+.ov>div{background:var(--c);border:1px solid #38406a;border-radius:14px;padding:14px;max-width:760px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 20px 60px #0009}
+.ov>div button[data-close]{min-width:38px}
+.bg{display:grid;grid-template-columns:repeat(auto-fill,minmax(66px,1fr));gap:6px}.bg button{padding:4px;font-size:10px;text-align:center}.bg img{width:100%;height:52px;object-fit:contain}
+.best{outline:2px solid var(--g)}.worst{outline:2px solid var(--r)}.ban{background:#ff5c6c22}
+@media(max-width:700px){
+ header{padding:8px;gap:6px}
+ header h1{width:100%;margin:0}
+ header select{max-width:45%;flex:1}
+ header button{padding:7px 8px}
+ nav{position:sticky;top:61px;z-index:4;background:var(--bg);padding:6px 8px}
+ main{padding:0 8px 28px}
+ .card{padding:10px;margin:8px 0}
+ .row>*{max-width:100%}
+ .row input{min-width:0}
+ table{display:block;overflow-x:auto;white-space:nowrap}
+ .ov{padding:8px}
+}
+</style></head><body>
+<header><h1>🏆 BS Analyst</h1>
+<select id="ws"></select><button id="nw">+ Equipo</button><button id="rn">Renombrar</button><button id="dl">Eliminar</button>
+<span style="flex:1"></span><span id="sync-status" class="tag">${syncStatus||"Conectando..."}</span><button id="ex">Exportar</button><button id="im">Importar</button><input type="file" id="fi" hidden accept=".json"></header>
+<nav id="tabs"></nav><main id="view"></main><div id="ov" class="ov" hidden></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ===== Pools competitivos oficiales de 2026: invierno y verano =====
+const POOL={
+"Bounty":["Shooting Star","Hideout","Layer Cake","Dry Season"],
+"Heist":["Hot Potato","Safe Zone","Bridge Too Far","Pit Stop","Kaboom Canyon"],
+"Hot Zone":["Ring of Fire","Open Business","Dueling Beetles"],
+"Brawl Ball":["Super Beach","Pinhole Punt","Sneaky Fields","Triple Dribble","Pinball Dreams"],
+"Gem Grab":["Hard Rock Mine","Double Swoosh","Deathcap Trap","Gem Fort","Crystal Arcade"],
+"Knockout":["Goldarm Gulch","Belle's Rock","Out in the Open","New Horizons","Flaring Phoenix"]
+};
+const ES={"Bounty":"Caza Estelar","Heist":"Atraco","Hot Zone":"Zona Restringida","Brawl Ball":"Balón Brawl","Gem Grab":"Atrapagemas","Knockout":"Noqueo"};
+const $=s=>document.querySelector(s),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9);
+let S=JSON.parse(localStorage.getItem("bsa")||"null")||(()=>{const id=uid();return{active:id,teams:{[id]:{name:"Mi equipo",matches:[],builds:{}}}}})();
+const SUPABASE_URL="https://epsqmbyoeqnxcfyrzbhi.supabase.co";
+const SUPABASE_KEY="sb_publishable_JrXaeoEactIVQp6wlfIRsw_QfCTOTyl";
+const supabase=window.supabase?.createClient(SUPABASE_URL,SUPABASE_KEY);
+let syncStatus="Conectando...";
+const setSyncStatus=(text)=>{syncStatus=text;const n=document.querySelector("#sync-status");if(n)n.textContent=text};
+const save=()=>{
+ localStorage.setItem("bsa",JSON.stringify(S));
+ if(!supabase){setSyncStatus("Local");return}
+ setSyncStatus("Guardando...");
+ supabase.from("app_data").upsert({key:"shared_state",value:S,updated_at:new Date().toISOString()},{onConflict:"key"})
+  .then(({error})=>setSyncStatus(error?"Error al sincronizar":"Guardado compartido"))
+  .catch(()=>setSyncStatus("Error al sincronizar"));
+};
+const T=()=>S.teams[S.active];
+let BR=[],MP=[],tab="partidos",rivalSel="",draft={mine:[],theirs:[],myBans:[],theirBans:[]},bq="",mapFilter="todos";
+const LIM={mine:3,theirs:3,myBans:5,theirBans:5};
+const brOf=n=>BR.find(b=>b.name===n),brImg=n=>{const b=brOf(n);return b?(b.imageUrl2||b.imageUrl):""};
+const norm=s=>s.toLowerCase().replace(/[^a-z0-9]/g,"");
+const allowedMode=n=>["Bounty","Heist","Gem Grab","Brawl Ball","Knockout","Hot Zone"].includes(n);
+const mapMode=n=>{const m=MP.find(m=>norm(m.name)===norm(n));return m?.gameMode?.name||modeOf(n)};
+const excludedMode=n=>{const x=norm(n);return x.includes("5v5")||x.startsWith("kaiju")||x.includes("kaiju")||x.includes("supervivencia")||x.includes("survival")||x.includes("showdown")};
+const mapImg=n=>{const m=MP.find(m=>norm(m.name)===norm(n)&&m.imageUrl);return m?m.imageUrl:""};
+const modeOf=n=>{for(const k in POOL)if(POOL[k].includes(n))return k;const m=MP.find(m=>m.name===n);return m?.gameMode?.name||"?"};
+const face=(n,a="")=>brImg(n)?`<img src="${brImg(n)}" title="${esc(n)}" ${a}>`:`<span class="tag" style="cursor:pointer" ${a}>${esc(n)}</span>`;
+const ic=(n,c="")=>brImg(n)?`<img class="ic ${c}" src="${brImg(n)}" alt="" loading="lazy">`:"";
+const wr=(w,n)=>n?Math.round(100*w/n)+"%":"–";
+const col=(w,n)=>!n?"m":w/n>=.55?"w":w/n<=.45?"l":"";
+function agg(ms,fn,win=m=>m.win){const o={};ms.forEach(m=>fn(m).forEach(k=>{o[k]??={n:0,w:0};o[k].n++;if(win(m))o[k].w++}));return o}
+const rows=o=>Object.entries(o).sort((a,b)=>b[1].n-a[1].n||b[1].w-a[1].w);
+
+const FALLBACK="Shelly,Colt,Bull,Brock,El Primo,Barley,Poco,Rosa,Jessie,Dynamike,Tick,8-Bit,Rico,Darryl,Penny,Carl,Jacky,Gus,Bo,Emz,Stu,Piper,Pam,Frank,Bibi,Bea,Nani,Edgar,Griff,Grom,Bonnie,Gale,Colette,Belle,Ash,Lola,Sam,Mandy,Maisie,Hank,Pearl,Larry & Lawrie,Angelo,Berry,Shade,Mortis,Tara,Gene,Max,Mr. P,Sprout,Byron,Squeak,Spike,Crow,Leon,Sandy,Amber,Meg,Surge,Chester,Cordelius,Kit,Draco,Kenji,Kaze,Buzz,Fang,Eve,Janet,Otis,Buster,Gray,R-T,Willow,Doug,Chuck,Charlie,Mico,Melodie,Lily,Clancy,Moe,Juju,Ollie,Lumi,Finx,Jae-yong,Alli,Mina,Ziggy,Gigi,Glowbert,Sirius,Najia".split(",");
+let ERR=[],ST={b:"cargando…",m:"cargando…"};
+async function getJSON(path){
+ const base="https://api.brawlapi.com"+path;
+ for(const u of [base,"https://api.brawlify.com"+path,"https://corsproxy.io/?url="+encodeURIComponent(base),"https://api.allorigins.win/raw?url="+encodeURIComponent(base)]){
+  try{const c=new AbortController(),t=setTimeout(()=>c.abort(),20000);const r=await fetch(u,{signal:c.signal});clearTimeout(t);
+   if(!r.ok)throw new Error("HTTP "+r.status);const j=await r.json(),l=Array.isArray(j)?j:j.list;if(Array.isArray(l)&&l.length)return l;throw new Error("respuesta vacía")}
+  catch(e){ERR.push(u.slice(0,60)+" → "+(e.name==="AbortError"?"timeout":e.message))}}
+ return null}
+const useFallback=()=>{if(!BR.length)BR=FALLBACK.map(name=>({name,imageUrl:""})).sort((a,b)=>a.name.localeCompare(b.name))};
+async function init(){
+ if(supabase){
+  const {data,error}=await supabase.from("app_data").select("value").eq("key","shared_state").maybeSingle();
+  if(!error&&data?.value){
+   S=data.value;
+   localStorage.setItem("bsa",JSON.stringify(S));
+   setSyncStatus("Datos compartidos");
+  }else if(error){
+   setSyncStatus("Tabla no configurada");
+  }
+ }
+ try{const c=JSON.parse(localStorage.getItem("bsa_api")||"null");if(c){BR=c.BR||[];MP=c.MP||[];ST={b:BR.length?"caché":"–",m:MP.length?"caché":"–"}}}catch(e){}
+ useFallback();render();
+ const[b,m]=await Promise.all([getJSON("/v1/brawlers"),getJSON("/v1/maps")]);
+ if(b){BR=b.map(x=>({name:x.name,imageUrl:x.imageUrl,imageUrl2:x.imageUrl2,class:x.class,rarity:x.rarity,description:x.description,starPowers:x.starPowers,gadgets:x.gadgets,gears:x.gears})).sort((x,y)=>x.name.localeCompare(y.name));ST.b="ok ("+BR.length+")"}else{ST.b="falló";useFallback()}
+ if(m){MP=m.map(x=>({name:x.name,imageUrl:x.imageUrl,gameMode:{name:x.gameMode?.name}}));ST.m="ok ("+MP.length+")"}else ST.m=MP.length?"caché":"falló";
+ try{if(b||m)localStorage.setItem("bsa_api",JSON.stringify({BR:b?BR:BR.filter(x=>x.imageUrl),MP}))}catch(e){}
+ render();
+}
+function render(){
+ $("#ws").innerHTML=Object.entries(S.teams).map(([id,t])=>`<option value="${id}" ${id==S.active?"selected":""}>${esc(t.name)}</option>`).join("");
+ const tb={partidos:"Partidos",analisis:"Análisis",rivales:"Rivales y bans",mapas:"Mapas",brawlers:"Brawlers"};
+ $("#tabs").innerHTML=Object.entries(tb).map(([k,v])=>`<button class="${k==tab?"on":""}" data-t="${k}">${v}</button>`).join("");
+ $("#view").innerHTML=({partidos:vMatches,analisis:vAnalysis,rivales:vRivals,mapas:vMaps,brawlers:vBrawlers})[tab]();
+ if(!BR.some(b=>b.imageUrl)||!MP.length)$("#view").insertAdjacentHTML("afterbegin",`<div class="card"><b class="l">Imágenes sin cargar</b> · brawlers: ${ST.b} · mapas: ${ST.m} <button data-retry>Reintentar</button>
+ <span class="m">La web funciona igualmente (puedes escribir cualquier brawler en el buscador).</span>${ERR.length?`<details><summary class="m">Ver errores</summary><pre style="white-space:pre-wrap;font-size:11px">${esc(ERR.join("\n"))}</pre></details>`:""}</div>`);
+}
+const chips=f=>`<div class="chips">${draft[f].map((n,i)=>face(n,`data-rm="${f}:${i}"`)).join("")}${draft[f].length<LIM[f]?`<button class="add" data-add="${f}">+</button>`:""}</div>`;
+
+function vMatches(){
+ const t=T(),ms=[...t.matches].sort((a,b)=>b.date.localeCompare(a.date)||0);
+ const rivals=[...new Set(t.matches.map(m=>m.rival))];
+ const mapOpts=Object.keys(POOL).map(k=>{
+  const names=[...(POOL[k]||[])].sort((a,b)=>a.localeCompare(b,"es"));
+  return names.length?`<optgroup label="${ES[k]}">${names.map(n=>`<option>${esc(n)}</option>`).join("")}</optgroup>`:"";
+ }).join("");
+ return `<div class="card"><h2>Nuevo partido</h2><div class="row">
+ <input type="date" id="f-date" value="${new Date().toISOString().slice(0,10)}">
+ <input id="f-rival" list="rv" placeholder="Equipo rival" size="18"><datalist id="rv">${rivals.map(r=>`<option value="${esc(r)}">`).join("")}</datalist>
+ <select id="f-map">${mapOpts}</select>
+ <select id="f-res"><option value="1">Victoria</option><option value="0">Derrota</option></select></div>
+ <div class="row" style="margin-top:10px;align-items:flex-start"><div><span class="m">Nuestros picks</span>${chips("mine")}</div><div><span class="m">Picks rival</span>${chips("theirs")}</div>
+ <div><span class="m">Nuestros bans</span>${chips("myBans")}</div><div><span class="m">Bans rival</span>${chips("theirBans")}</div></div>
+ <div class="row" style="margin-top:8px"><input id="f-notes" placeholder="Notas (opcional)" style="flex:1;min-width:200px"><button class="p" id="f-save">Guardar partido</button></div></div>
+ <div class="card"><h2>Historial (${ms.length})</h2>${ms.length?`<table><tr><th>Fecha</th><th>Rival</th><th>Mapa</th><th></th><th>Picks</th><th>Rival</th><th></th></tr>${ms.map(m=>`<tr>
+ <td>${m.date}</td><td>${esc(m.rival)}</td><td>${esc(m.map)}<br><span class="tag">${ES[m.mode]||m.mode}</span></td><td class="${m.win?"w":"l"}"><b>${m.win?"V":"D"}</b></td>
+ <td>${m.mine.map(n=>ic(n)).join("")}</td><td>${m.theirs.map(n=>ic(n)).join("")}</td><td><button data-del="${m.id}">✕</button></td></tr>`).join("")}</table>`:`<span class="m">Aún no hay partidos.</span>`}</div>`;
+}
+const tbl=(o,h,min=0)=>`<table><tr><th>${h}</th><th>Part.</th><th>V</th><th>D</th><th>WR</th></tr>${rows(o).filter(([,v])=>v.n>=min).map(([k,v])=>`<tr><td>${ic(k)}${esc(ES[k]||k)}</td><td>${v.n}</td><td>${v.w}</td><td>${v.n-v.w}</td><td class="${col(v.w,v.n)}"><b>${wr(v.w,v.n)}</b></td></tr>`).join("")||`<tr><td class="m" colspan=5>Sin datos</td></tr>`}</table>`;
+function vAnalysis(){
+ const ms=T().matches,w=ms.filter(m=>m.win).length;
+ if(!ms.length)return `<div class="card m">Registra partidos para ver el análisis.</div>`;
+ const last=ms.slice(-10),lw=last.filter(m=>m.win).length;
+ return `<div class="card"><div class="kpi"><div><b>${ms.length}</b>Partidos</div><div><b class="w">${w}</b>Victorias</div><div><b class="l">${ms.length-w}</b>Derrotas</div>
+ <div><b class="${col(w,ms.length)}">${wr(w,ms.length)}</b>Winrate</div><div><b>${wr(lw,last.length)}</b>Últimos ${last.length}</div></div></div>
+ <div class="card"><h2>Por modo</h2>${tbl(agg(ms,m=>[m.mode]),"Modo")}</div>
+ <div class="card"><h2>Por mapa</h2>${tbl(agg(ms,m=>[m.map]),"Mapa")}</div>
+ <div class="card"><h2>Nuestros brawlers (picks)</h2>${tbl(agg(ms,m=>m.mine),"Brawler")}</div>
+ <div class="card"><h2>Brawlers rivales vs nosotros <span class="m">(WR = nuestro winrate cuando ellos lo juegan)</span></h2>${tbl(agg(ms,m=>m.theirs),"Brawler")}</div>`;
+}
+function banTable(ms){
+ const th=agg(ms,m=>m.theirs,m=>!m.win),L=Object.entries(th).map(([k,v])=>[k,v,v.n*(v.w+1)/(v.n+2)]).sort((a,b)=>b[2]-a[2]);
+ const tb=agg(ms,m=>m.theirBans,()=>false);
+ return `<div class="card"><h2>Bans recomendados ${rivalSel?`vs ${esc(rivalSel)}`:"(todos los rivales)"}</h2>
+ <p class="m">Puntuación = nº de veces que lo juegan × su winrate suavizado contra nosotros. Los 5 primeros están marcados.</p>
+ ${L.length?`<table><tr><th>Brawler</th><th>Picks rival</th><th>Su WR vs nos</th><th>Puntuación</th></tr>${L.map(([k,v,s],i)=>`<tr class="${i<5?"ban":""}"><td>${ic(k)}${esc(k)} ${i<5?'<span class="tag">BANEAR</span>':""}</td><td>${v.n}</td><td class="${col(v.n-v.w? v.w:0,v.n)}">${wr(v.w,v.n)}</td><td>${s.toFixed(2)}</td></tr>`).join("")}</table>`:`<span class="m">Sin picks rivales registrados.</span>`}</div>
+ <div class="card"><h2>Brawlers que nos banean</h2>${Object.keys(tb).length?`<div class="row">${rows(tb).map(([k,v])=>`<span class="tag">${ic(k)}${esc(k)} ×${v.n}</span>`).join("")}</div>`:`<span class="m">Sin datos.</span>`}</div>`;
+}
+function vRivals(){
+ const ms=T().matches,rv=agg(ms,m=>[m.rival]);
+ if(!ms.length)return `<div class="card m">Registra partidos para analizar rivales.</div>`;
+ const sel=rivalSel?ms.filter(m=>m.rival===rivalSel):ms;
+ return `<div class="card"><h2>Rivales</h2><div class="row" style="margin-bottom:10px"><select id="rsel"><option value="">Todos</option>${Object.keys(rv).sort().map(r=>`<option ${r==rivalSel?"selected":""}>${esc(r)}</option>`).join("")}</select></div>
+ <table><tr><th>Rival</th><th>Part.</th><th>V</th><th>D</th><th>WR</th></tr>${rows(rv).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.n}</td><td>${v.w}</td><td>${v.n-v.w}</td><td class="${col(v.w,v.n)}"><b>${wr(v.w,v.n)}</b></td></tr>`).join("")}</table></div>
+ ${rivalSel?`<div class="card"><h2>Mapas contra ${esc(rivalSel)}</h2>${tbl(agg(sel,m=>[m.map]),"Mapa")}</div>`:""}${banTable(sel)}`;
+}
+function vMaps(){
+ const st=agg(T().matches,m=>[m.map]);
+ const cards=Object.entries(POOL).map(([k,v])=>{
+  let names=[...(v||[])];
+  names=names.filter(n=>{
+   const s=st[n];
+   if(mapFilter==="mejor")return s&&s.n>0&&s.w/s.n>=.6;
+   if(mapFilter==="peor")return s&&s.n>0&&s.w/s.n<=.4;
+   if(mapFilter==="neutro")return s&&s.n>0&&s.w/s.n>.4&&s.w/s.n<.6;
+   if(mapFilter==="sindatos")return !s||s.n===0;
+   return true;
+  }).sort((a,b)=>{
+   if(mapFilter==="mejor"||mapFilter==="peor"){
+    const sa=st[a]?st[a].w/st[a].n:-1,sb=st[b]?st[b].w/st[b].n:-1;
+    return mapFilter==="mejor"?sb-sa:sa-sb;
+   }
+   if(mapFilter==="todos"){
+    const na=st[a]?.n||0,nb=st[b]?.n||0;
+    if(na!==nb)return nb-na;
+   }
+   return a.localeCompare(b,"es");
+  });
+  return `<div class="card"><h2>${ES[k]} <span class="m">(${names.length} mapas)</span></h2><div class="grid">${names.map(n=>{
+   const s=st[n]||{n:0,w:0},c=s.n?(s.w/s.n>.5?"best":s.w/s.n<=.5?"worst":""):"";
+   const rate=s.n?s.w/s.n:0;
+   const barClass=!s.n?"no-data":rate>.5?"good":"bad";
+   return `<div class="map ${c}" data-map="${esc(n)}">${mapImg(n)?`<img src="${mapImg(n)}" loading="lazy" alt="">`:`<div style="height:110px;display:flex;align-items:center;justify-content:center;background:#111;color:var(--m);font-size:12px">${ES[k]}</div>`}<div><b>${esc(n)}</b><br><span class="${col(s.w,s.n)}">${wr(s.w,s.n)}</span> <span class="m">${s.w}V-${s.n-s.w}D</span><div class="bar"><i class="${barClass}" data-rate="${Math.round(rate*100)}" style="width:${s.n?100*rate:0}%"></i></div></div></div>`;
+  }).join("")}</div></div>`;
+ }).join("");
+ return `<div class="card"><div class="row"><h2 style="margin:0">Rendimiento por mapa</h2><select id="mfilter" aria-label="Filtrar mapas por rendimiento">
+ <option value="todos" ${mapFilter==="todos"?"selected":""}>Todos</option>
+ <option value="mejor" ${mapFilter==="mejor"?"selected":""}>Los que mejor se nos dan (≥60%)</option>
+ <option value="peor" ${mapFilter==="peor"?"selected":""}>Los que peor se nos dan (≤40%)</option>
+ <option value="neutro" ${mapFilter==="neutro"?"selected":""}>Rendimiento intermedio (41–59%)</option>
+ <option value="sindatos" ${mapFilter==="sindatos"?"selected":""}>Sin datos</option>
+ </select></div></div>`+cards+`<p class="m">Barra verde = más del 50% de victorias · Barra roja = 50% o menos · Gris = sin partidos.</p>`;
+}
+function vBrawlers(){
+ const us=agg(T().matches,m=>m.mine),q=norm(bq);
+ return `<div class="card"><input id="bq" placeholder="Buscar brawler…" value="${esc(bq)}"><div class="grid" style="margin-top:10px;grid-template-columns:repeat(auto-fill,minmax(96px,1fr))">
+ ${BR.filter(b=>norm(b.name).includes(q)).map(b=>{const s=us[b.name];return `<button data-br="${esc(b.name)}" style="text-align:center">${b.imageUrl2||b.imageUrl?`<img class="ic l" src="${b.imageUrl2||b.imageUrl}" loading="lazy"><br>`:""}${esc(b.name)}<br><span class="m">${s?wr(s.w,s.n)+" ("+s.n+")":b.class?.name||""}</span></button>`}).join("")}</div></div>`;
+}
+function openMapAnalysis(name){
+ const ms=T().matches.filter(m=>m.map===name);
+ const w=ms.filter(m=>m.win).length;
+ const mine=agg(ms,m=>m.mine);
+ const theirs=agg(ms,m=>m.theirs);
+ const myBans=agg(ms,m=>m.myBans,()=>false);
+ const theirBans=agg(ms,m=>m.theirBans,()=>false);
+ const rank=(o,how="ours")=>{
+  const entries=Object.entries(o).map(([n,v])=>{
+   const rate=v.n?v.w/v.n:0;
+   const banScore=how==="ban"?v.n*(v.w+1)/(v.n+2):rate;
+   return [n,v,banScore];
+  }).sort((a,b)=>b[2]-a[2]||b[1].n-a[1].n);
+  return entries.slice(0,5).map(([n,v])=>`<div class="map-rank">${ic(n)}<span>${esc(n)}</span><b class="${col(v.w,v.n)}">${wr(v.w,v.n)} <span class="m">(${v.n})</span></b></div>`).join("")||
+   `<span class="m">Sin datos para este mapa.</span>`;
+ };
+ const bansAgainst=Object.entries(theirs).map(([n,v])=>{
+  const losses=v.n-v.w;
+  return [n,v,losses, v.n?losses/v.n:0];
+ }).sort((a,b)=>b[2]-a[2]||b[3]-a[3]).slice(0,5);
+ const rivalBanHtml=bansAgainst.map(([n,v,l,r])=>`<div class="map-rank">${ic(n)}<span>${esc(n)}</span><b class="l">${l}D <span class="m">/${v.n}</span></b></div>`).join("")||`<span class="m">Sin picks rivales registrados.</span>`;
+ const o=openOverlay();
+ o.innerHTML=`<div><div class="row"><div><h2 style="margin:0">${esc(name)}</h2><span class="m">${esc(ES[modeOf(name)]||modeOf(name))}</span></div><span style="flex:1"></span><button data-close aria-label="Cerrar">✕</button></div>
+ <div class="kpi" style="margin:12px 0"><div><b>${ms.length}</b>Partidos</div><div><b class="w">${w}</b>Victorias</div><div><b class="l">${ms.length-w}</b>Derrotas</div><div><b class="${col(w,ms.length)}">${wr(w,ms.length)}</b>Winrate</div></div>
+ ${ms.length?`<div class="map-analysis">
+ <div><h2>Mejores picks propios</h2>${rank(mine)}</div>
+ <div><h2>Mejores brawlers rivales contra nosotros</h2>${rivalBanHtml}</div>
+ <div><h2>Brawlers que hemos baneado</h2>${rank(myBans,"ban")}</div>
+ <div><h2>Brawlers que nos han baneado</h2>${rank(theirBans,"ban")}</div>
+ </div>`:`<div class="card m">Aún no hay partidos registrados en este mapa.</div>`}</div>`;
+}
+function openOverlay(){
+ const o=$("#ov");
+ o.hidden=false;
+ o.setAttribute("aria-modal","true");
+ o.setAttribute("role","dialog");
+ document.body.classList.add("modal-open");
+ return o;
+}
+function closeOverlay(){
+ const o=$("#ov");
+ o.hidden=true;
+ o.removeAttribute("aria-modal");
+ o.removeAttribute("role");
+ o.removeAttribute("data-f");
+ document.body.classList.remove("modal-open");
+}
+function openBrawler(n){
+ const b=brOf(n);if(!b)return;const bd=T().builds[n]||"";
+ const li=(t,a)=>a?.length?`<h2 style="margin-top:12px">${t}</h2><div class="row">${a.map(x=>`<span class="tag">${x.imageUrl?`<img class="ic" src="${x.imageUrl}">`:""}${esc(x.name)}</span>`).join("")}</div>`:"";
+ const o=openOverlay();o.innerHTML=`<div><div class="row">${b.imageUrl2||b.imageUrl?`<img class="ic l" src="${b.imageUrl2||b.imageUrl}">`:""}<div><h2 style="margin:0">${esc(b.name)}</h2><span class="m">${esc(b.class?.name||"")} · ${esc(b.rarity?.name||"")}</span></div><span style="flex:1"></span><button data-close aria-label="Cerrar">✕</button></div>
+ <p class="m">${esc(b.description||"")}</p>${li("Star Powers",b.starPowers)}${li("Gadgets",b.gadgets)}${li("Gears",b.gears)}
+ <h2 style="margin-top:14px">Mi build recomendada (nota del equipo)</h2><textarea id="bd" rows="4" style="width:100%" placeholder="Ej: Star Power 2 · Gadget 1 · Gears: Velocidad + Escudo">${esc(bd)}</textarea>
+ <div class="row" style="margin-top:8px"><button class="p" data-sb="${esc(n)}">Guardar build</button></div></div>`;
+}
+function openPicker(f){
+ const o=openOverlay();
+ const draw=q=>{const L=BR.filter(b=>norm(b.name).includes(norm(q))&&!draft[f].includes(b.name));
+  $("#pg").innerHTML=L.map(b=>`<button data-pick="${esc(b.name)}">${b.imageUrl2||b.imageUrl?`<img src="${b.imageUrl2||b.imageUrl}" loading="lazy"><br>`:""}${esc(b.name)}</button>`).join("")+(q.trim()&&!BR.some(b=>norm(b.name)===norm(q))?`<button data-pick="${esc(q.trim())}">➕ Añadir «${esc(q.trim())}»</button>`:"")};
+ o.innerHTML=`<div><div class="row"><input id="ps" placeholder="Buscar…" style="flex:1"><button data-close aria-label="Cerrar">✕</button></div><div id="pg" class="bg" style="margin-top:10px"></div></div>`;
+ draw("");$("#ps").oninput=e=>draw(e.target.value);$("#ps").focus();o.dataset.f=f;
+}
+document.addEventListener("click",e=>{
+ const d=e.target.closest("button,img,span,[data-t],[data-map]");if(!d)return;const D=d.dataset;
+ if(D.t){tab=D.t;render()}
+ else if("retry" in D){ERR=[];ST={b:"cargando…",m:"cargando…"};init()}
+ else if(D.add)openPicker(D.add);
+ else if(D.rm){const[f,i]=D.rm.split(":");draft[f].splice(+i,1);keep()}
+ else if(D.pick){const f=$("#ov").dataset.f;draft[f].push(D.pick);closeOverlay();keep()}
+ else if("close" in D)closeOverlay();
+ else if(D.br)openBrawler(D.br);
+ else if(D.map)openMapAnalysis(D.map);
+ else if(D.sb){T().builds[D.sb]=$("#bd").value;save();closeOverlay()}
+ else if(D.del){if(confirm("¿Borrar este partido?")){T().matches=T().matches.filter(m=>m.id!==D.del);save();render()}}
+ else if(d.id==="f-save"){const r=$("#f-rival").value.trim();if(!r)return alert("Indica el equipo rival");
+  const map=$("#f-map").value;T().matches.push({id:uid(),date:$("#f-date").value,rival:r,map,mode:modeOf(map),win:$("#f-res").value==="1",notes:$("#f-notes").value,...JSON.parse(JSON.stringify(draft))});
+  draft={mine:[],theirs:[],myBans:[],theirBans:[]};save();render()}
+});
+function keep(){const v={d:$("#f-date")?.value,r:$("#f-rival")?.value,m:$("#f-map")?.value,s:$("#f-res")?.value,n:$("#f-notes")?.value};render();
+ if($("#f-date")){$("#f-date").value=v.d;$("#f-rival").value=v.r;$("#f-map").value=v.m;$("#f-res").value=v.s;$("#f-notes").value=v.n}}
+document.addEventListener("change",e=>{
+ if(e.target.id==="rsel"){rivalSel=e.target.value;render()}
+ if(e.target.id==="mfilter"){mapFilter=e.target.value;render()}
+});
+$("#ov").addEventListener("click",e=>{if(e.target.id==="ov")closeOverlay()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#ov").hidden)closeOverlay()});
+document.addEventListener("input",e=>{if(e.target.id==="bq"){bq=e.target.value;const p=e.target.selectionStart;render();const i=$("#bq");i.focus();i.setSelectionRange(p,p)}});
+$("#ws").onchange=e=>{S.active=e.target.value;rivalSel="";save();render()};
+$("#nw").onclick=()=>{const n=prompt("Nombre del nuevo equipo / web:");if(!n)return;const id=uid();S.teams[id]={name:n,matches:[],builds:{}};S.active=id;save();render()};
+$("#rn").onclick=()=>{const n=prompt("Nuevo nombre:",T().name);if(n){T().name=n;save();render()}};
+$("#dl").onclick=()=>{if(Object.keys(S.teams).length<2)return alert("Debe existir al menos un equipo");if(confirm(`¿Eliminar "${T().name}" y todos sus partidos?`)){delete S.teams[S.active];S.active=Object.keys(S.teams)[0];save();render()}};
+$("#ex").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:"application/json"}));a.download="bs-analyst-backup.json";a.click()};
+$("#im").onclick=()=>$("#fi").click();
+$("#fi").onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text());if(!d.teams)throw 0;if(confirm("Esto reemplaza los datos actuales. ¿Continuar?")){S=d;save();render()}}catch{alert("Archivo no válido")}};
+render();init();
+</script></body></html>
