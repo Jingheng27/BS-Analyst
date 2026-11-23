@@ -59,7 +59,6 @@ tbody tr:hover{background:#1a22352e}
 <select id="ws"></select><button id="nw">+ Equipo</button><button id="rn">Renombrar</button><button id="dl">Eliminar</button>
 <span style="flex:1"></span><span id="sync-status" class="tag">Conectando...</span><button id="ex">Exportar</button><button id="im">Importar</button><input type="file" id="fi" hidden accept=".json"></header>
 <nav id="tabs"></nav><main id="view"></main><div id="ov" class="ov" hidden></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ===== Pools competitivos oficiales de 2026: invierno y verano =====
 const POOL={
@@ -76,16 +75,20 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 let S=JSON.parse(localStorage.getItem("bsa")||"null")||(()=>{const id=uid();return{active:id,teams:{[id]:{name:"Mi equipo",matches:[],builds:{}}}}})();
 const SUPABASE_URL="https://epsqmbyoeqnxcfyrzbhi.supabase.co";
 const SUPABASE_KEY="sb_publishable_JrXaeoEactIVQp6wlfIRsw_QfCTOTyl";
-const supabase=window.supabase?.createClient(SUPABASE_URL,SUPABASE_KEY);
 let syncStatus="Conectando...";
 const setSyncStatus=(text)=>{syncStatus=text;const n=document.querySelector("#sync-status");if(n)n.textContent=text};
-const save=()=>{
+const syncHeaders=()=>({apikey:SUPABASE_KEY,Authorization:"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"});
+const save=async()=>{
  localStorage.setItem("bsa",JSON.stringify(S));
- if(!supabase){setSyncStatus("Local");return}
  setSyncStatus("Guardando...");
- supabase.from("app_data").upsert({key:"shared_state",value:S,updated_at:new Date().toISOString()},{onConflict:"key"})
-  .then(({error})=>setSyncStatus(error?"Error al sincronizar":"Guardado compartido"))
-  .catch(()=>setSyncStatus("Error al sincronizar"));
+ const c=new AbortController(),timer=setTimeout(()=>c.abort(),10000);
+ try{
+  const r=await fetch(SUPABASE_URL+"/rest/v1/app_data",{
+   method:"POST",headers:{...syncHeaders(),"Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({key:"shared_state",value:S,updated_at:new Date().toISOString()}),signal:c.signal
+  });
+  clearTimeout(timer);
+  setSyncStatus(r.ok?"Guardado compartido":"Error al sincronizar");
+ }catch(e){clearTimeout(timer);setSyncStatus(e.name==="AbortError"?"Sin respuesta de Supabase":"Error al sincronizar")}
 };
 const T=()=>S.teams[S.active];
 let BR=[],MP=[],tab="partidos",rivalSel="",draft={mine:[],theirs:[],myBans:[],theirBans:[]},bq="",mapFilter="todos";
@@ -115,15 +118,26 @@ async function getJSON(path){
  return null}
 const useFallback=()=>{if(!BR.length)BR=FALLBACK.map(name=>({name,imageUrl:""})).sort((a,b)=>a.name.localeCompare(b.name))};
 async function init(){
- if(supabase){
-  const {data,error}=await supabase.from("app_data").select("value").eq("key","shared_state").maybeSingle();
-  if(!error&&data?.value){
-   S=data.value;
-   localStorage.setItem("bsa",JSON.stringify(S));
-   setSyncStatus("Datos compartidos");
-  }else if(error){
-   setSyncStatus("Tabla no configurada");
+ try{
+  const c=new AbortController(),timer=setTimeout(()=>c.abort(),10000);
+  const r=await fetch(SUPABASE_URL+"/rest/v1/app_data?key=eq.shared_state&select=value",{
+   headers:syncHeaders(),signal:c.signal
+  });
+  clearTimeout(timer);
+  if(!r.ok){setSyncStatus(r.status===404?"Tabla no configurada":"Error de conexión");}
+  else{
+   const rows=await r.json();
+   if(rows?.[0]?.value){
+    S=rows[0].value;
+    localStorage.setItem("bsa",JSON.stringify(S));
+    setSyncStatus("Datos compartidos");
+   }else{
+    setSyncStatus("Guardado compartido");
+    save();
+   }
   }
+ }catch(e){
+  setSyncStatus(e.name==="AbortError"?"Sin respuesta de Supabase":"Local: sin conexión");
  }
  try{const c=JSON.parse(localStorage.getItem("bsa_api")||"null");if(c){BR=c.BR||[];MP=c.MP||[];ST={b:BR.length?"caché":"–",m:MP.length?"caché":"–"}}}catch(e){}
  useFallback();render();
